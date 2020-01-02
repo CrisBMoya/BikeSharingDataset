@@ -97,9 +97,17 @@ for(i in 1:length(unique(DF$UniqueTable))){
   ResY[[i]]=TEMP[,c('count')]
   ResX[[i]]=TEMP[,c('temp', 'atemp', 'humidity', 'windspeed', 'casual', 'registered')]
 }
+TEMP_X=ldply(.data=ResX, .fun=as.data.frame)
+TEMP_Y=ldply(.data=ResY, .fun=as.data.frame)
+write.table(x=TEMP_X, file='C:/Users/Tobal/Desktop/Temp_X.txt', quote=FALSE, sep='\t', row.names=FALSE)
+write.table(x=TEMP_Y, file='C:/Users/Tobal/Desktop/Temp_Y.txt', quote=FALSE, sep='\t', row.names=FALSE)
+
+
 #Original Array structure -- Acc 0.62 -- 100 Epoch
 XVal=array(data=unlist(ResX), dim=c(length(ResX),SlideSize*2,ncol(ResX[[1]])))
 YVal=t(matrix(data=unlist(ResY), nrow=3, ncol=length(ResY)))
+
+
 
 #DF Temp's dimension product should be the same as XVal's dimension product
 DFTemp=ldply(.data=ResX, .fun=as.data.frame)
