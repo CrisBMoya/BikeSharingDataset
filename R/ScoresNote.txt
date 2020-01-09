@@ -1,0 +1,8 @@
+Best Score:
+35.71 RMSE
+
+XGBoost:
+47.12 RMSE
+
+Current LSTM:
+141.15 RMSE
