@@ -1,7 +1,9 @@
-## Clean environment
+## Clean environment and load libraries
+```{r remedy001}
 rm(list=ls())
 
 #Load libraries
+suppressMessages({
 library(tidyverse)
 library(caret)
 library(lubridate)
@@ -11,15 +13,18 @@ library(ggplot2)
 library(dplyr)
 library(plyr)
 library(gtools)
+})
+
+```
 
 # Purpose:
 ## To use AutoML in as a model recommendation system and to extract importance of variables.
 ## To check wether AutoML produces better results without any EDA or feature engineering.
 
-## Set working directory
-setwd(gsub(pattern='Documents', replacement='Google Drive/Github/BikeSharingDataset', x=getwd()))
 
 ## Load Data
+
+```{r remedy002}
 TrainDF=read_delim(file=unz(description='Data/bike-sharing-demand.zip', filename='train.csv'), delim=',')
 TrainDF$datetime=as.character.Date(TrainDF$datetime)
 TrainDF$casual=NULL
@@ -27,23 +32,42 @@ TrainDF$registered=NULL
 TestDF=read_delim(file=unz(description='Data/bike-sharing-demand.zip', filename='test.csv'), delim=',')
 TestDF$datetime=as.character.Date(TestDF$datetime)
 
+```
 
 ## Create train df
+
+```{r remedy003}
+
 Train_X=TrainDF
 
+
+```
 ## Split
+
+```{r remedy004}
+
 Split=createDataPartition(y=Train_X$season, times=1, p=0.1)
 Split=Split$Resample1
 
+
+```
 ## Test
+
+```{r remedy005}
+
 Dev_Y=Train_X[Split,c('count')]
 Dev_X=Train_X[Split,colnames(Train_X)[!colnames(Train_X) %in% c('count')]]
 
+
+```
 ## Train
+
+```{r remedy006}
+
 Train_Y=Train_X[-Split,c('count')]
 Train_X=Train_X[-Split,colnames(Train_X)[!colnames(Train_X) %in% c('count')]]
 
-ReDo=TRUE
+ReDo=FALSE
 if(ReDo){
   # AutoML
   ## Start H2O
@@ -117,88 +141,194 @@ if(ReDo){
   h2o.shutdown(prompt=FALSE)
 }
 
+
+```
 # Load model
 ## Start H2O
-h2o.init(nthreads=-1, ip='localhost', port=8079)
+
+
+```{r remedy007, include=FALSE}
+
+suppressMessages(h2o.init(nthreads=-1, ip='localhost', port=8079, name='TemporalH2O'))
+
+
+```
 
 ## Load Model
+
+```{r remedy008}
+
 AutoML=h2o.loadModel(path='R/AutoMLModel_V2.h2o/GBM_2_AutoML_20200114_130405')
 
+
+```
 ## Test H2O
+
+```{r remedy009}
+
 Dev_XH2O=as.h2o(Dev_X)
 
+
+```
 ## Predict
+
+```{r remedy010}
+
 Predict=h2o.predict(AutoML, Dev_XH2O)
 
+
+```
 ## Check
+
+```{r remedy011}
+
 cor(as.data.frame(x=Predict)[,1], Dev_Y$count)
 RMSE(pred=as.data.frame(x=Predict)[,1], obs=Dev_Y$count)
 
+
+```
 # Improve model
 
 ## Learn about hyperparameters
+
+```{r remedy012}
+
 AutoML@parameters
 
+
+```
 ## Check important variables
+
+```{r remedy013}
+
 h2o.varimp(object=AutoML)
 
+
+```
 ## Discrete quantization
+
+```{r remedy014}
+
 ggplot(data=TrainDF, aes(y=count, x=datetime, colour=atemp)) + geom_point()
 
 TrainDF$QuantAtemp=quantcut(x=TrainDF$atemp, q=4)
 ggplot(data=TrainDF, aes(y=count, x=datetime, colour=QuantAtemp)) + geom_point()
 
 TrainDF$QuantTemp=quantcut(x=TrainDF$temp, q=4)
-##
+
+```
 
 ## Load Data
+
+```{r remedy015}
+
 TrainDF=read_delim(file=unz(description='Data/bike-sharing-demand.zip', filename='train.csv'), delim=',')
 TrainDF$casual=NULL
 TrainDF$registered=NULL
 
+
+```
 ## Extract data from datetime
+
+```{r remedy016}
+
 TrainDF$Hour=lubridate::hour(x=TrainDF$datetime)
 TrainDF$Month=lubridate::month(x=TrainDF$datetime)
 TrainDF$Year=lubridate::year(x=TrainDF$datetime)
 
+
+```
 ## Create dummy variables and fuse with original DF
+
+```{r remedy017}
+
 Train_X=as_tibble(dummy.data.frame(data=as.data.frame(TrainDF[,c('weather','Year','Month','Hour','season')]), dummy.class='ALL'))
 Train_X=bind_cols(TrainDF, Train_X)
 
+
+```
 ## Split
+
+```{r remedy018}
+
 Split=createDataPartition(y=Train_X$season, times=1, p=0.1)
 Split=Split$Resample1
 
+
+```
 ## Test
+
+```{r remedy019}
+
 Dev_Y=Train_X[Split,c('count')]
 Dev_X=Train_X[Split,colnames(Train_X)[!colnames(Train_X) %in% c('count','datetime')]]
 
+
+```
 ## Train
+
+```{r remedy020}
+
 Train_Y=Train_X[-Split,c('count')]
 Train_X=Train_X[-Split,colnames(Train_X)[!colnames(Train_X) %in% c('count','datetime')]]
 
+
+```
 ## Test H2O
+
+```{r remedy021}
+
 Dev_XH2O=as.h2o(Dev_X)
 
+
+```
 ## Train H2O
+
+```{r remedy022}
+
 Train_XH2O=as.h2o(cbind(Train_X, Train_Y))
 
+
+```
 ## Train model
+
+```{r remedy023}
+
 AutoML@parameters
 
 NewModel=h2o.gbm(nfolds=5, keep_cross_validation_models=FALSE, keep_cross_validation_predictions=FALSE, score_tree_interval=5, fold_assignment='Modulo', ntrees=53, max_depth=7, stopping_metric='deviance', stopping_tolerance=0.01010359, seed=4, distribution='gaussian', sample_rate=0.8, col_sample_rate=0.8, x=setdiff(colnames(Train_X), 'count'), y='count', training_frame=Train_XH2O)
 
+
+```
 ## Predict
+
+```{r remedy024}
+
 Predict=h2o.predict(NewModel, Dev_XH2O)
 
+
+```
 ## Check
+
+```{r remedy025}
+
 cor(as.data.frame(x=Predict)[,1], Dev_Y$count)
 RMSE(pred=as.data.frame(x=Predict)[,1], obs=Dev_Y$count)
 
+
+```
 # New Data
+
+```{r remedy026}
+
 TestDF=read_delim(file=unz(description='Data/bike-sharing-demand.zip', filename='test.csv'), delim=',')
 
+
+```
 ## Extract data from datetime
+
+```{r remedy027}
+
 TestDF$Hour=lubridate::hour(x=TestDF$datetime)
 TestDF$Month=lubridate::month(x=TestDF$datetime)
 TestDF$Year=lubridate::year(x=TestDF$datetime)
@@ -209,25 +339,32 @@ Test_X$datetime=NULL
 
 Test_XH2O=as.h2o(Test_X)
 
+
+```
 ## Predict
+
+```{r remedy028}
+
 Predict=h2o.predict(NewModel, Test_XH2O)
 Predict=as.data.frame(Predict)[,1]
 Predict[Predict<0]=0
 
+
+```
+
 #Save
+
+```{r remedy029}
+
 SubV=data.frame('datetime'=TestDF$datetime, 'count'=Predict)
 write.table(x=SubV, file='R/Sub_AutoML_V2.csv', sep=',', row.names=FALSE, quote=FALSE)
 
-#Submit
-RE=TRUE
-if(RE){
-  print('WARNING: A file will be uploaded!')
-  list.files(path='R/')
-  Sys.sleep(5)
-  
-  system('kaggle competitions submit -c bike-sharing-demand -f R/Sub_AutoML_V2.csv -m "Submission from API - AutoML"')
-}
 
-
+```
 ## Shut down H2O
+
+```{r remedy030}
+
 h2o.shutdown(prompt=FALSE)
+
+```
